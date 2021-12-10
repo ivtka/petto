@@ -39,12 +39,18 @@ impl MongoDB {
     }
 
     pub fn get_customers(&self) -> Vec<Customer> {
+        let pipeline = vec![doc! {
+            "$sort": {
+                "order_datetime": 1
+            }
+        }];
        let mut cursor = self.db
-           .collection::<Customer>("customers")
-           .find(None, None).expect("Not found");
+           .collection::<Document>("customers")
+           .aggregate(pipeline, None)
+           .expect("Not found");
        let mut result: Vec<Customer> = Vec::new(); 
        while let Some(obj) = cursor.next() {
-           let mut customer = obj.expect("not found customer");
+           let mut customer: Customer = bson::from_document(obj.unwrap()).expect("not found customer");
            let doctor = DoctorRepository::find_by_id(&customer.examined_doctor, &self).expect("Not found doctor");
            customer.examined_doctor = doctor.get("name").expect("not found").as_str().unwrap().to_string();
            let service = ServiceRepository::find_by_id(&customer.ordered_service, &self).expect("Not found service");
